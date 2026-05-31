@@ -68,26 +68,67 @@ vsftpd, стандартний FTP-сервер для Ubuntu, за замовч
 
 STRIDE - це класифікаційна схема загроз, розроблена в Microsoft, яка розбиває всі можливі атаки на шість категорій: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service та Elevation of Privilege. Ця схема зручна тим, що змушує системно пройтися по кожному компоненту і задати собі питання: а що саме тут може піти не так і в яку категорію це потрапляє?
 
+Формально STRIDE застосовується до діаграм потоків даних (DFD), де загрози ідентифікуються в точках перетину меж довіри. Нижче наведена DFD типового веб-сервера, що розглядається у цій роботі.
+
+### Діаграма потоків даних (DFD)
+
+```mermaid
+flowchart LR
+    Attacker(["🌐 Зовнішній актор\n(користувач / зловмисник)"])
+
+    subgraph DMZ ["──── Межа довіри 1: периметр (UFW) ────"]
+        direction TB
+        SSH["SSH\n:22 / 2222\nOpenSSH"]
+        WEB["Веб-сервер\n:80 / 443\nNginx / Apache"]
+        FTP["FTP / FTPS\n:21\nvsftpd"]
+    end
+
+    subgraph LOCAL ["──── Межа довіри 2: localhost ────"]
+        direction TB
+        DB[("MySQL\n:3306\n127.0.0.1")]
+        FS["Файлова система\n/var/www, /home"]
+        LOGS["Журнали\n/var/log"]
+    end
+
+    Attacker -->|"TCP auth"| SSH
+    Attacker -->|"HTTP/HTTPS"| WEB
+    Attacker -->|"FTP control"| FTP
+
+    SSH -->|"shell / sudo"| FS
+    SSH -.->|"auth events"| LOGS
+    WEB -->|"SQL-запити"| DB
+    WEB -->|"статичні файли"| FS
+    FTP -->|"upload / download"| FS
+    FTP -.->|"сесії"| LOGS
+    DB --- FS
+```
+
+*Рисунок 1.1 — Діаграма потоків даних типового веб-сервера. Суцільні стрілки — потоки даних; пунктирні — події журналювання. Межі довіри показують точки, в яких застосовується STRIDE-аналіз.*
+
+Кожна стрілка, що перетинає межу довіри, є потенційним вектором атаки з відповідною STRIDE-категорією: вхідні TCP-з'єднання через UFW (Spoofing, DoS), доступ до файлової системи через SSH (Tampering, Elevation of Privilege), SQL-запити від веб-сервера до MySQL (Information Disclosure, Tampering), відсутність або модифікація журналів (Repudiation). Матриця нижче систематизує ці загрози по компонентах.
+
 ### Матриця загроз STRIDE
 
-| Компонент | Категорія STRIDE | Загроза | Контрзахід |
-|---|---|---|---|
-| SSH | Information Disclosure | Розкриття версії OpenSSH через banner до автентифікації | DebianBanner no, обмеження pre-auth інформації |
-| SSH | Elevation of Privilege | Brute-force парольної автентифікації, в т.ч. під root | PermitRootLogin no, PasswordAuthentication no, Fail2Ban |
-| SSH | Spoofing | Підміна ключів при першому підключенні (TOFU-атака) | Завчасне додавання відбитку ключа в known_hosts |
-| SSH | Denial of Service | Перевантаження сервера з'єднаннями | MaxStartups, LoginGraceTime, rate-limiting UFW |
-| Web (Nginx/Apache) | Information Disclosure | Розкриття версії сервера в заголовку Server | server_tokens off / ServerTokens Prod |
-| Web (Nginx/Apache) | Tampering | XSS-атаки через відсутність CSP | Content-Security-Policy: default-src 'self' (Report-Only) |
-| Web (Nginx/Apache) | Information Disclosure | Перегляд вмісту директорій через directory listing | autoindex off / -Indexes |
-| Web (Nginx/Apache) | Tampering | Clickjacking через відсутність X-Frame-Options | X-Frame-Options: SAMEORIGIN |
-| Web (Nginx/Apache) | Tampering | MIME-sniffing атаки | X-Content-Type-Options: nosniff |
-| MySQL | Denial of Service | Зовнішні запити до порту 3306 | bind-address = 127.0.0.1 |
-| MySQL | Elevation of Privilege | Анонімний доступ, порожній root-пароль | mysql_secure_installation, видалення анонімних користувачів |
-| MySQL | Information Disclosure | Витік схеми БД через надмірні привілеї | Принцип мінімальних привілеїв для кожного користувача |
-| FTP | Information Disclosure | Передача облікових даних відкритим текстом | Обов'язкове шифрування через FTPS (TLS) |
-| FTP | Elevation of Privilege | Вихід за межі домашньої директорії | chroot_local_user=YES у vsftpd |
-| FTP | Spoofing | Підміна FTP-трафіку при відсутності шифрування | Міграція на FTPS або SFTP |
-| Периметр | Denial of Service | Перебір портів і автоматизоване сканування | UFW Default Deny, Fail2Ban для SSH і FTP |
+| Компонент | Категорія STRIDE | Загроза | Контрзахід | Рівень ризику |
+|---|---|---|---|---|
+| SSH | Information Disclosure | Розкриття версії OpenSSH через banner до автентифікації | DebianBanner no, обмеження pre-auth інформації | Low |
+| SSH | Elevation of Privilege | Brute-force парольної автентифікації, в т.ч. під root | PermitRootLogin no, PasswordAuthentication no, Fail2Ban | High |
+| SSH | Spoofing | Підміна ключів при першому підключенні (TOFU-атака) | Завчасне додавання відбитку ключа в known_hosts | Medium |
+| SSH | Denial of Service | Перевантаження сервера з'єднаннями | MaxStartups, LoginGraceTime, rate-limiting UFW | Medium |
+| Web (Nginx/Apache) | Information Disclosure | Розкриття версії сервера в заголовку Server | server_tokens off / ServerTokens Prod | Low |
+| Web (Nginx/Apache) | Tampering | XSS-атаки через відсутність CSP | Content-Security-Policy: default-src 'self' (Report-Only) | Medium |
+| Web (Nginx/Apache) | Information Disclosure | Перегляд вмісту директорій через directory listing | autoindex off / -Indexes | Medium |
+| Web (Nginx/Apache) | Tampering | Clickjacking через відсутність X-Frame-Options | X-Frame-Options: SAMEORIGIN | Medium |
+| Web (Nginx/Apache) | Tampering | MIME-sniffing атаки | X-Content-Type-Options: nosniff | Low |
+| MySQL | Denial of Service | Зовнішні запити до порту 3306 | bind-address = 127.0.0.1 | High |
+| MySQL | Elevation of Privilege | Анонімний доступ, порожній root-пароль | mysql_secure_installation, видалення анонімних користувачів | High |
+| MySQL | Information Disclosure | Витік схеми БД через надмірні привілеї | Принцип мінімальних привілеїв для кожного користувача | Medium |
+| FTP | Information Disclosure | Передача облікових даних відкритим текстом | Обов'язкове шифрування через FTPS (TLS) | High |
+| FTP | Elevation of Privilege | Вихід за межі домашньої директорії | chroot_local_user=YES у vsftpd | High |
+| FTP | Spoofing | Підміна FTP-трафіку при відсутності шифрування | Міграція на FTPS або SFTP | Medium |
+| FTP | Repudiation | Очищення історії сесій через відсутність деталізованого журналу дій | xferlog_enable=YES, log_ftp_protocol=YES у vsftpd; пересилання журналів на віддалений syslog | Medium |
+| Логування | Repudiation | Модифікація або видалення лог-файлів зловмисником після компрометації системи | Пересилання журналів на віддалений rsyslog-сервер у режимі реального часу; обмеження прав запису на /var/log через auditd | High |
+| Периметр | Denial of Service | Перебір портів і автоматизоване сканування | UFW Default Deny, Fail2Ban для SSH і FTP | Medium |
 
 ---
 
