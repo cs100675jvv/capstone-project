@@ -100,7 +100,11 @@ flowchart TD
     E --> SSH_START
 
     subgraph SSH ["Модуль SSH (3.5)"]
-        SSH_START["Застосувати директиви sshd_config"] --> SSH_CHECK{"sshd -t OK?"}
+        SSH_START["Застосувати директиви sshd_config"] --> SSH_KEYS{"authorized_keys<br/>існує?"}
+        SSH_KEYS -- Так --> SSH_PASSNO["PasswordAuthentication no"]
+        SSH_KEYS -- Ні --> SSH_KEYGEN["ssh-keygen Ed25519<br/>→ authorized_keys<br/>→ вивести приватний ключ"]
+        SSH_KEYGEN --> SSH_PASSNO
+        SSH_PASSNO --> SSH_CHECK{"sshd -t OK?"}
         SSH_CHECK -- Ні --> SSH_REVERT["Негайний відкат<br/>з backup"] --> SSH_ERR(["✖ ERR trap"])
         SSH_CHECK -- Так --> SSH_RELOAD["systemctl restart sshd"]
         SSH_RELOAD --> SSH_UP{"sshd активний?"}
@@ -305,10 +309,27 @@ disable_password_auth() {
     done < /etc/passwd
 
     if [ "$has_keys" = false ]; then
-        log "WARNING: No SSH keys found in authorized_keys."
-        log "Skipping PasswordAuthentication disable to prevent lockout."
-        log "Add your SSH key first, then re-run this module."
-        return 0
+        # Ключа немає — генеруємо пару Ed25519 автоматично
+        local admin_home
+        admin_home="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
+        local key_file="${admin_home}/.ssh/id_ed25519_hardening"
+
+        mkdir -p "${admin_home}/.ssh"
+        chmod 700 "${admin_home}/.ssh"
+        ssh-keygen -t ed25519 -f "$key_file" -N "" \
+            -C "hardening-${ADMIN_USER}-$(date +%Y%m%d)"
+        cat "${key_file}.pub" >> "${admin_home}/.ssh/authorized_keys"
+        chmod 600 "${admin_home}/.ssh/authorized_keys"
+        chown -R "${ADMIN_USER}:" "${admin_home}/.ssh"
+
+        # Зберігаємо копію та виводимо в термінал для передачі адміністратору
+        local key_export="/root/hardening_private_key_$(date +%Y%m%d_%H%M%S).pem"
+        cp "$key_file" "$key_export"
+        chmod 600 "$key_export"
+        log "SSH key generated. Copy the private key below to your local machine."
+        cat "$key_file"
+        log "Private key also saved to: ${key_export}"
+        log "After copying, delete it from the server: rm ${key_export}"
     fi
 
     sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/'         /etc/ssh/sshd_config
@@ -391,7 +412,7 @@ log() {
 
 **`PermitRootLogin no`** — забороняє прямий вхід під обліковим записом root по SSH. Навіть якщо зловмисник підбере або отримає пароль root, він не зможе безпосередньо автентифікуватись як root по SSH. Адміністрування виконується через непривілейованого користувача з подальшим переходом через `sudo`. Це не обмежує функціональність, але суттєво звужує вектор атаки: будь-яка успішна атака тепер вимагає щонайменше двох кроків — компрометації непривілейованого облікового запису і підвищення привілеїв.
 
-**`PasswordAuthentication no`** — вимикає парольну автентифікацію і залишає лише автентифікацію за SSH-ключами. Парольна автентифікація є мішенню для brute-force атак і credential stuffing — обох автоматизованих класів атак. SSH-ключі за своєю природою не підбираються перебором: 2048-бітний RSA-ключ або Ed25519 є криптографічно непереборними при нинішньому рівні обчислювальних потужностей. Як зазначено в підрозділі 3.3, ця директива активується тільки після підтвердження наявності SSH-ключа в `authorized_keys` хоча б одного користувача.
+**`PasswordAuthentication no`** — вимикає парольну автентифікацію і залишає лише автентифікацію за SSH-ключами. Парольна автентифікація є мішенню для brute-force атак і credential stuffing — обох автоматизованих класів атак. SSH-ключі за своєю природою не підбираються перебором: 2048-бітний RSA-ключ або Ed25519 є криптографічно непереборними при нинішньому рівні обчислювальних потужностей. Скрипт перевіряє наявність `authorized_keys` перед вимкненням паролів. Якщо ключа не знайдено — автоматично генерується пара ключів Ed25519, публічний ключ додається до `authorized_keys`, а приватний виводиться в термінал і зберігається у `/root/hardening_private_key_*.pem` для передачі адміністратору. Таким чином директива `PasswordAuthentication no` застосовується завжди, незалежно від початкового стану системи, без ризику втрати доступу.
 
 **`MaxAuthTries 3`** — обмежує кількість спроб автентифікації в рамках одного TCP-з'єднання. Після трьох невдалих спроб SSH-сервер примусово закриває з'єднання. Це уповільнює автоматизовані атаки: замість нескінченних спроб у рамках одного з'єднання зловмисник змушений встановлювати нове з'єднання після кожних трьох спроб, що генерує більше помітного мережевого трафіку і дає Fail2Ban більше подій для аналізу.
 

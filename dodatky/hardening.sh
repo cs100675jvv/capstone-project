@@ -476,10 +476,76 @@ disable_password_auth() {
     done < /etc/passwd
 
     if [[ "$has_keys" == "false" ]]; then
-        log_warn "No SSH authorized_keys found in any user's home directory."
-        log_warn "Skipping PasswordAuthentication disable to prevent lockout."
-        log_warn "Action required: add your SSH public key, then re-run this module."
-        return 0
+        log_warn "No SSH authorized_keys found. Generating SSH key pair for ${ADMIN_USER}..."
+
+        # Визначаємо домашню директорію адміністратора
+        local admin_home
+        admin_home="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
+        if [[ -z "$admin_home" ]]; then
+            log_warn "Cannot determine home directory for ${ADMIN_USER}. Skipping key generation."
+            log_warn "Action required: add your SSH public key manually, then re-run this module."
+            return 0
+        fi
+
+        local ssh_dir="${admin_home}/.ssh"
+        local key_file="${ssh_dir}/id_ed25519_hardening"
+
+        # Створюємо директорію .ssh з правильними правами доступу
+        mkdir -p "$ssh_dir"
+        chmod 700 "$ssh_dir"
+
+        # Генеруємо пару ключів Ed25519 (без пароля для сумісності з автоматизацією).
+        # Ed25519 обраний як сучасний стандарт: менший розмір, вища швидкість,
+        # криптографічно стійкіший ніж RSA-2048.
+        ssh-keygen -t ed25519 \
+            -f "$key_file" \
+            -N "" \
+            -C "hardening-${ADMIN_USER}-$(date +%Y%m%d)" \
+            2>/dev/null
+
+        # Додаємо публічний ключ до authorized_keys
+        cat "${key_file}.pub" >> "${ssh_dir}/authorized_keys"
+        chmod 600 "${ssh_dir}/authorized_keys"
+
+        # Встановлюємо власника (важливо якщо скрипт запущений від root, а ADMIN_USER — інший)
+        local admin_group
+        admin_group="$(id -gn "$ADMIN_USER" 2>/dev/null || echo "$ADMIN_USER")"
+        chown -R "${ADMIN_USER}:${admin_group}" "$ssh_dir"
+
+        # Зберігаємо копію приватного ключа у /root для зручного вилучення.
+        # Права 600 — тільки root може прочитати.
+        local key_export="/root/hardening_private_key_${RUN_TIMESTAMP}.pem"
+        cp "$key_file" "$key_export"
+        chmod 600 "$key_export"
+
+        # Виводимо інструкції та вміст приватного ключа в термінал.
+        # УВАГА: поточна SSH-сесія залишається активною навіть після перезапуску sshd,
+        # тому ключ можна скопіювати з цього терміналу до закриття сесії.
+        log_warn "========================================================"
+        log_warn "  SSH KEY GENERATED — COPY PRIVATE KEY BEFORE PROCEEDING"
+        log_warn "========================================================"
+        log_warn "Private key also saved to: ${key_export}"
+        log_warn ""
+        log_warn "Option 1 — copy-paste from this terminal:"
+        log_warn "  Select the key block below and save it locally as:"
+        log_warn "  ~/.ssh/id_ed25519_server   (chmod 600)"
+        log_warn ""
+        log_warn "Option 2 — SCP from your local machine (open a NEW terminal NOW,"
+        log_warn "  before password auth is disabled):"
+        log_warn "  scp -P 22 root@<server-ip>:${key_export} ~/.ssh/id_ed25519_server"
+        log_warn "  chmod 600 ~/.ssh/id_ed25519_server"
+        log_warn ""
+        log_warn "After saving, delete from server:"
+        log_warn "  rm ${key_export}"
+        log_warn "========================================================"
+        # Виводимо вміст ключа напряму в термінал (без запису в лог-файл)
+        printf '\n--- BEGIN PRIVATE KEY (copy everything between the markers) ---\n' >&2
+        cat "$key_file" >&2
+        printf '--- END PRIVATE KEY ---\n\n' >&2
+        log_warn "========================================================"
+
+        log_info "SSH key generated and added to authorized_keys for: ${ADMIN_USER}"
+        has_keys=true
     fi
 
     # Знаходимо рядок незалежно від того, прокоментований він чи ні
