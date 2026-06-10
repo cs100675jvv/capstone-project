@@ -1,0 +1,217 @@
+[2026-06-09 15:58:21] [WARN ] This script is designed for a fresh Ubuntu 24.04 web server first run.
+[2026-06-09 15:58:21] [WARN ] It may change SSH, firewall, web, database and FTP service configuration.
+[2026-06-09 15:58:21] [WARN ] UFW rules will be reset to a clean default-deny baseline.
+[2026-06-09 15:58:27] [INFO ] ============================================================
+[2026-06-09 15:58:27] [INFO ]   hardening.sh v1.9 started
+[2026-06-09 15:58:27] [INFO ]   Tue Jun  9 03:58:27 PM UTC 2026
+[2026-06-09 15:58:27] [INFO ]   DRY_RUN=false
+[2026-06-09 15:58:27] [INFO ]   SSH_PORT=2222
+[2026-06-09 15:58:27] [INFO ]   RESET_UFW=true
+[2026-06-09 15:58:27] [INFO ]   RUN_UPGRADE=true
+[2026-06-09 15:58:27] [INFO ] ============================================================
+[2026-06-09 15:58:27] [INFO ] 
+[2026-06-09 15:58:27] [INFO ] ========================================
+[2026-06-09 15:58:27] [INFO ] MODULE: Package verification & install
+[2026-06-09 15:58:27] [INFO ] ========================================
+[2026-06-09 15:58:27] [INFO ] Refreshing apt package cache...
+[2026-06-09 15:58:30] [INFO ] Applying available package upgrades...
+[2026-06-09 15:58:54] [INFO ] Package upgrade complete.
+[2026-06-09 15:58:54] [INFO ] --- Checking SSH ---
+[2026-06-09 15:58:54] [INFO ] Package already installed: openssh-server
+[2026-06-09 15:58:54] [INFO ] --- Checking web server ---
+[2026-06-09 15:58:54] [INFO ] nginx is already installed.
+[2026-06-09 15:58:54] [INFO ] --- Checking MySQL/MariaDB ---
+[2026-06-09 15:58:54] [INFO ] mariadb-server is already installed.
+[2026-06-09 15:58:54] [INFO ] --- Checking FTP (vsftpd) ---
+[2026-06-09 15:58:54] [INFO ] vsftpd is already installed.
+[2026-06-09 15:58:54] [INFO ] --- Checking perimeter tools (ufw, fail2ban) ---
+[2026-06-09 15:58:54] [INFO ] Package already installed: ufw
+[2026-06-09 15:58:54] [INFO ] Package already installed: fail2ban
+[2026-06-09 15:58:54] [INFO ] --- Checking auxiliary tools ---
+[2026-06-09 15:58:54] [INFO ] Package already installed: openssl
+[2026-06-09 15:58:54] [INFO ] Package not found: debsums. Installing...
+[2026-06-09 15:58:58] [INFO ] Package installed successfully: debsums
+[2026-06-09 15:58:58] [INFO ] Package not found: apt-show-versions. Installing...
+[2026-06-09 15:59:06] [INFO ] Package installed successfully: apt-show-versions
+[2026-06-09 15:59:06] [INFO ] Package not found: rkhunter. Installing...
+[2026-06-09 15:59:48] [INFO ] Package installed successfully: rkhunter
+[2026-06-09 15:59:48] [INFO ] Package verification complete.
+[2026-06-09 15:59:48] [INFO ] 
+[2026-06-09 15:59:48] [INFO ] ========================================
+[2026-06-09 15:59:48] [INFO ] MODULE: Environment detection
+[2026-06-09 15:59:48] [INFO ] ========================================
+[2026-06-09 15:59:48] [INFO ] Active web server: nginx
+[2026-06-09 15:59:48] [INFO ] vsftpd: present
+[2026-06-09 15:59:48] [INFO ] MySQL/MariaDB: present
+[2026-06-09 15:59:48] [INFO ] 
+[2026-06-09 15:59:48] [INFO ] Admin user inferred from SUDO_USER: vitalii
+[2026-06-09 15:59:48] [INFO ] Admin user already exists: vitalii
+[2026-06-09 15:59:48] [INFO ] Admin user (for AllowUsers SSH): vitalii
+[2026-06-09 15:59:48] [WARN ] No existing SSH keys found for vitalii. Starting bootstrap mode...
+[2026-06-09 16:00:57] [INFO ] Bootstrap confirmed by user. Private key deleted from server.
+[2026-06-09 16:00:57] [INFO ] ========================================
+[2026-06-09 16:00:57] [INFO ] MODULE: SSH Hardening
+[2026-06-09 16:00:57] [INFO ] ========================================
+[2026-06-09 16:00:57] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_ssh_sshd_config.bak.20260609_155821
+[2026-06-09 16:00:57] [INFO ] SSH: Dead Man's Switch watchdog started (PID 78577, timeout 60s)
+[2026-06-09 16:00:57] [INFO ] Applying SSH hardening directives...
+[2026-06-09 16:00:57] [INFO ] SSH: PermitRootLogin -> no
+[2026-06-09 16:00:57] [INFO ] SSH: MaxAuthTries -> 3
+[2026-06-09 16:00:57] [INFO ] SSH: LoginGraceTime -> 20
+[2026-06-09 16:00:57] [INFO ] SSH: MaxStartups -> 10:30:100
+[2026-06-09 16:00:57] [INFO ] SSH: X11Forwarding -> no
+[2026-06-09 16:00:57] [INFO ] SSH: AllowAgentForwarding -> no
+[2026-06-09 16:00:57] [INFO ] SSH: DebianBanner -> no
+[2026-06-09 16:00:57] [INFO ] SSH: ClientAlive -> 300s interval, 2 max count
+[2026-06-09 16:00:57] [INFO ] SSH: Port -> 2222
+[2026-06-09 16:00:57] [INFO ] SSH: AllowUsers set to 'vitalii'
+[2026-06-09 16:00:57] [WARN ] SSH: Detected /etc/ssh/sshd_config.d/50-cloud-init.conf — local override will take precedence
+[2026-06-09 16:00:57] [INFO ] SSH: PasswordAuthentication disabled via local drop-in override
+[2026-06-09 16:00:57] [INFO ] SSH: sshd -t syntax check PASSED
+[2026-06-09 16:00:58] [INFO ] SSH: ssh.socket override applied for port 2222
+[2026-06-09 16:01:01] [INFO ] SSH: Dead Man's Switch cancelled (PID 78577)
+[2026-06-09 16:01:01] [INFO ] SSH: ssh restarted and active on port 2222
+[2026-06-09 16:01:01] [INFO ] SSH hardening completed.
+[2026-06-09 16:01:01] [INFO ] 
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] MODULE: Extra SSH policies for Lynis
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] SSH: AllowTcpForwarding -> no
+[2026-06-09 16:01:01] [INFO ] SSH: LogLevel -> VERBOSE
+[2026-06-09 16:01:01] [INFO ] SSH: MaxSessions -> 2
+[2026-06-09 16:01:01] [INFO ] SSH: TCPKeepAlive -> no
+[2026-06-09 16:01:01] [INFO ] SSH: extra Lynis-oriented policies applied successfully
+[2026-06-09 16:01:01] [INFO ] 
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] MODULE: login.defs hardening
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_login.defs.bak.20260609_155821
+[2026-06-09 16:01:01] [INFO ] login.defs hardening complete
+[2026-06-09 16:01:01] [INFO ] 
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] MODULE: Shell timeout policy
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] Shell timeout policy created: /etc/profile.d/hardening-timeout.sh
+[2026-06-09 16:01:01] [INFO ] 
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] MODULE: Malware scanner (rkhunter)
+[2026-06-09 16:01:01] [INFO ] ========================================
+[2026-06-09 16:01:01] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_rkhunter.conf.bak.20260609_155821
+[2026-06-09 16:01:05] [WARN ] rkhunter update returned non-zero
+[2026-06-09 16:01:18] [INFO ] Malware scanner module complete
+[2026-06-09 16:01:18] [INFO ] 
+[2026-06-09 16:01:18] [INFO ] ========================================
+[2026-06-09 16:01:18] [INFO ] MODULE: Web Server Hardening (nginx)
+[2026-06-09 16:01:18] [INFO ] ========================================
+[2026-06-09 16:01:18] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_nginx_nginx.conf.bak.20260609_155821
+[2026-06-09 16:01:18] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_nginx_sites-available_default.bak.20260609_155821
+[2026-06-09 16:01:18] [INFO ] Nginx: server_tokens off
+[2026-06-09 16:01:18] [INFO ] Nginx: TLS certificate detected — HSTS will be enabled
+[2026-06-09 16:01:18] [INFO ] Nginx: security headers snippet created: /etc/nginx/snippets/security-headers.conf
+[2026-06-09 16:01:18] [INFO ] Nginx: security-headers.conf included in default site
+[2026-06-09 16:01:18] [INFO ] Nginx: autoindex disabled
+[2026-06-09 16:01:18] [INFO ] Nginx: nginx -t syntax check PASSED
+[2026-06-09 16:01:18] [INFO ] Nginx: reloaded successfully
+[2026-06-09 16:01:18] [INFO ] 
+[2026-06-09 16:01:19] [INFO ] ========================================
+[2026-06-09 16:01:19] [INFO ] MODULE: MySQL/MariaDB Hardening
+[2026-06-09 16:01:19] [INFO ] ========================================
+[2026-06-09 16:01:19] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_mysql_mariadb.conf.d_50-server.cnf.bak.20260609_155821
+[2026-06-09 16:01:19] [INFO ] MySQL: bind-address set to 127.0.0.1
+[2026-06-09 16:01:19] [WARN ] MySQL: mysqld --validate-config returned non-zero (may be non-fatal)
+[2026-06-09 16:01:19] [INFO ] MySQL: running security initialization (mysql_secure_installation equivalent)...
+[2026-06-09 16:01:19] [INFO ] MySQL: anonymous users removed
+[2026-06-09 16:01:19] [INFO ] MySQL: remote root login blocked
+[2026-06-09 16:01:19] [INFO ] MySQL: test database dropped
+[2026-06-09 16:01:19] [INFO ] MySQL: privileges flushed
+[2026-06-09 16:01:19] [INFO ] MySQL hardening completed.
+[2026-06-09 16:01:19] [INFO ] 
+[2026-06-09 16:01:19] [INFO ] ========================================
+[2026-06-09 16:01:19] [INFO ] MODULE: FTP (vsftpd) Hardening
+[2026-06-09 16:01:19] [INFO ] ========================================
+[2026-06-09 16:01:19] [INFO ] Backup created: /var/backups/hardening_20260609_155821/_etc_vsftpd.conf.bak.20260609_155821
+[2026-06-09 16:01:19] [INFO ] FTP: ssl_enable=YES
+[2026-06-09 16:01:19] [INFO ] FTP: force_local_logins_ssl=YES, force_local_data_ssl=YES
+[2026-06-09 16:01:19] [INFO ] FTP: SSLv2/v3 disabled, TLSv1.2 enabled
+[2026-06-09 16:01:19] [INFO ] FTP: chroot_local_user=YES
+[2026-06-09 16:01:20] [INFO ] FTP: allow_writeable_chroot=YES
+[2026-06-09 16:01:20] [INFO ] FTP: xferlog_enable=YES, log_ftp_protocol=YES (Repudiation countermeasure)
+[2026-06-09 16:01:20] [INFO ] FTP: PASV range restricted to 40000-40099
+[2026-06-09 16:01:20] [WARN ] FTP: Self-signed certificate generated: /etc/ssl/vsftpd/vsftpd.pem
+[2026-06-09 16:01:20] [WARN ] FTP: Replace with a valid certificate for production!
+[2026-06-09 16:01:20] [INFO ] FTP: vsftpd restarted and active
+[2026-06-09 16:01:20] [INFO ] FTP hardening completed.
+[2026-06-09 16:01:20] [INFO ] 
+[2026-06-09 16:01:20] [INFO ] ========================================
+[2026-06-09 16:01:20] [INFO ] MODULE: Perimeter (UFW + Fail2Ban)
+[2026-06-09 16:01:20] [INFO ] ========================================
+[2026-06-09 16:01:20] [INFO ] --- UFW Firewall ---
+[2026-06-09 16:01:20] [INFO ] UFW: reset to clean state
+[2026-06-09 16:01:20] [INFO ] UFW: default deny incoming, allow outgoing
+[2026-06-09 16:01:20] [INFO ] UFW: allowed SSH on port 2222/tcp
+[2026-06-09 16:01:20] [INFO ] UFW: allowed HTTP (80/tcp) and HTTPS (443/tcp)
+[2026-06-09 16:01:21] [INFO ] UFW: allowed FTP (21/tcp) and PASV range (40000-40099/tcp)
+[2026-06-09 16:01:21] [INFO ] UFW: enabled and active
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+2222/tcp                   ALLOW IN    Anywhere                   # SSH hardened
+80/tcp                     ALLOW IN    Anywhere                   # HTTP
+443/tcp                    ALLOW IN    Anywhere                   # HTTPS
+21/tcp                     ALLOW IN    Anywhere                   # FTP control
+40000:40099/tcp            ALLOW IN    Anywhere                   # FTP PASV range
+2222/tcp (v6)              ALLOW IN    Anywhere (v6)              # SSH hardened
+80/tcp (v6)                ALLOW IN    Anywhere (v6)              # HTTP
+443/tcp (v6)               ALLOW IN    Anywhere (v6)              # HTTPS
+21/tcp (v6)                ALLOW IN    Anywhere (v6)              # FTP control
+40000:40099/tcp (v6)       ALLOW IN    Anywhere (v6)              # FTP PASV range
+
+[2026-06-09 16:01:21] [INFO ] --- Fail2Ban ---
+[2026-06-09 16:01:21] [INFO ] Fail2Ban: /etc/fail2ban/jail.d/hardening.local written
+[2026-06-09 16:01:25] [INFO ] Fail2Ban: active and running
+[2026-06-09 16:01:25] [INFO ] Perimeter hardening completed.
+[2026-06-09 16:01:25] [INFO ] 
+[2026-06-09 16:01:25] [INFO ] ========================================
+[2026-06-09 16:01:25] [INFO ] HARDENING COMPLETE — Summary Report
+[2026-06-09 16:01:25] [INFO ] ========================================
+
+  ╔══════════════════════════════════════════════════════════╗
+  ║           HARDENING REPORT — 2026-06-09 16:01:25           ║
+  ╚══════════════════════════════════════════════════════════╝
+
+  Script version : 1.9
+  Log file       : /var/log/hardening_20260609_155821.log
+  Backup dir     : /var/backups/hardening_20260609_155821
+
+  MODULES APPLIED:
+  ─────────────────────────────────────────────────────────
+  [✓] Package verification and installation
+  [✓] SSH hardening
+        Port        : 2222
+        PermitRoot  : no
+        MaxAuthTries: 3
+        MaxStartups : 10:30:100
+        LoginGrace  : 20s
+        DebianBanner: no
+  [✓] Web server hardening (nginx)
+        server_tokens off / ServerTokens Prod
+        Security headers enabled
+        Directory listing disabled
+  [✓] MySQL/MariaDB hardening
+  [✓] FTP (vsftpd) hardening
+  [✓] UFW firewall
+  [✓] Fail2Ban
+
+  IMPORTANT: SSH is now on port 2222
+  Test in a new terminal before closing this session:
+  ssh -p 2222 vitalii@<server-ip>
+
+  Quick verification commands:
+  ufw status verbose
+  fail2ban-client status sshd
+  ssh -p 2222 vitalii@<server-ip>
+[2026-06-09 16:01:25] [INFO ] hardening.sh completed successfully. Log: /var/log/hardening_20260609_155821.log
