@@ -22,6 +22,11 @@
 - Операційна система: свіжа інсталяція **Ubuntu 24.04 LTS**.
 - Права `root` (або виконання через `sudo`).
 
+### Завантаження скрипта
+```bash
+curl -L -o hardening.sh https://raw.githubusercontent.com/cs100675jvv/capstone-project/main/hardening.sh
+```
+
 ### Базовий запуск
 ```bash
 sudo bash hardening.sh
